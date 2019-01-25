@@ -17,8 +17,12 @@ fn main() {
 
     // load ssl keys
     let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-    builder.set_private_key_file("./examples/key.pem", SslFiletype::PEM).unwrap();
-    builder.set_certificate_chain_file("./examples/cert.pem").unwrap();
+    builder
+        .set_private_key_file("./examples/key.pem", SslFiletype::PEM)
+        .unwrap();
+    builder
+        .set_certificate_chain_file("./examples/cert.pem")
+        .unwrap();
     let acceptor = builder.build();
 
     let num = Arc::new(AtomicUsize::new(0));
@@ -29,31 +33,32 @@ fn main() {
     actix_server::build()
         .bind(
             // configure service pipeline
-            "basic", "0.0.0.0:8443",
+            "basic",
+            "0.0.0.0:8443",
             move || {
                 let num = num.clone();
                 let acceptor = acceptor.clone();
 
                 // service for converting incoming TcpStream to a SslStream<TcpStream>
                 (move |stream| {
-                SslAcceptorExt::accept_async(&acceptor, stream)
-                    .map_err(|e| println!("Openssl error: {}", e))
-            })
-            // convert closure to a `NewService`
-            .into_new_service()
-
-            // .and_then() combinator uses other service to convert incoming `Request` to a `Response`
-            // and then uses that response as an input for next service.
-            // in this case, on success we use `logger` service
-            .and_then(logger)
-
-            // Next service counts number of connections
-            .and_then(move |req| {
-                let num = num.fetch_add(1, Ordering::Relaxed);
-                println!("processed {:?} connections", num);
-                future::ok(())
-            })
-        }).unwrap()
+                    SslAcceptorExt::accept_async(&acceptor, stream)
+                        .map_err(|e| println!("Openssl error: {}", e))
+                })
+                // convert closure to a `NewService`
+                .into_new_service()
+                // .and_then() combinator uses other service to convert incoming `Request` to a `Response`
+                // and then uses that response as an input for next service.
+                // in this case, on success we use `logger` service
+                .and_then(logger)
+                // Next service counts number of connections
+                .and_then(move |req| {
+                    let num = num.fetch_add(1, Ordering::Relaxed);
+                    println!("processed {:?} connections", num);
+                    future::ok(())
+                })
+            },
+        )
+        .unwrap()
         .start();
 
     sys.run();
